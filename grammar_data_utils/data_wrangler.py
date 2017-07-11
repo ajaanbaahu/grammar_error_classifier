@@ -4,17 +4,11 @@ from nltk import FreqDist
 import numpy as np
 import pandas as pd
 import pickle
+from tensorflow.python.platform import gfile
+import tensorflow as tf
 
 
 import codecs
-
-#input files for correct and incorrect grammar data
-# file2 = '/Users/rmohan/sequenceModels/data/modulated_en.txt'
-# file1 = '/Users/rmohan/sequenceModels/data/correct_en.txt'
-#
-# #destination files for processed data
-# corr_sentid_file = '../data/grammar_classification_data/correct_ids.pkl'
-# mod_sentid_file = '../data/grammar_classification_data/mod_ids.pkl'
 
 
 def tokenize_sequence(sent_seq):
@@ -30,14 +24,9 @@ def process_input(file, vocab_size):
     try:
         dist = FreqDist(np.hstack(tokenised))
         vocab = dist.most_common(vocab_size -1)
-        # data_len = len(tokenised)
-        # if flag == 1:
-        #     y = np.ones(data_len)
-        # elif flag == 0:
-        #     y = np.zeros(data_len)
+
     except BaseException as e:
         print(e)
-    #print(len(tokenised), len(y), len(vocab))
     return tokenised, vocab
 
 def convert_to_ids(word_sequence, vocab):
@@ -78,53 +67,78 @@ def read_from_pickle(file_path):
         return data
 
 
-#tokenize sentences and generate vocab data for correct grammar
-# corr_data, corr_vocab_data = process_input(file1, vocab_size=1000000)
-#
-# #generate correct word2ids, id2word for correct grammar
-# id2w_C,w2id_C = convert_to_ids(corr_data, corr_vocab_data)
-#
-# #generate word2ids sequence for correct grammar
-# final_correct_seq_ids = convert_seq2ids(corr_data,id2w_C,w2id_C)
-# #give lables to data
-# corr_label = np.ones(len(final_correct_seq_ids))
-#
-# #tokenize sentences and generate vocab data for incorrect grammar
-# mod_data, mod_vocab_data = process_input(file2, vocab_size=1000000)
-#
-# #generate correct word2ids, id2word for incorrect grammar
-# id2w_M,w2id_M = convert_to_ids(mod_data, mod_vocab_data)
-#
-# #generate word2ids sequence for incorrect grammar
-# final_mod_seq_ids = convert_seq2ids(mod_data,id2w_M,w2id_M)
-# #give lables to data
-# mod_label = np.zeros(len(final_mod_seq_ids))
-#
-# ''' dump and read data if needed '''
-# #dump_to_pickle(corr_sentid_file, final_correct_seq_ids)
-# #dump_to_pickle(mod_sentid_file, final_mod_seq_ids)
-#
-#
-# #final_correct_seq_ids = read_from_pickle(corr_sentid_file)
-# #final_mod_seq_ids = read_from_pickle(mod_sentid_file)
-#
-#
-# #size of dataframe
-# n = 20000000
-#
-# #dataframe for correct grammar
-# df_correct = convert_to_df(final_correct_seq_ids, corr_label,n)
-#
-# #dataframe for incorrect grammar
-# df_modulated =convert_to_df(final_mod_seq_ids, mod_label,n)
-#
-# final_mod_seq_ids,final_correct_seq_ids,mod_label, corr_label = '','','',''
-#
-# #combing the two dataframe
-# df_full = pd.concat([df_correct,df_modulated],axis=0)
-#
-# full_df_file = '../data/grammar_classification_data/full_df.pkl'
-#
-# # dump_to_pickle(full_df_file,df_full)
-# dump_to_pickle(full_df_file,df_full)
-#
+
+def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
+                      tokenizer=None, normalize_digits=True):
+    if not gfile.Exists(vocabulary_path):
+        print("Creating vocabulary %s from data %s" % (vocabulary_path, data_path))
+        vocab = {}
+        with gfile.GFile(data_path, mode="rb") as f:
+            counter = 0
+            for line in f:
+                counter += 1
+                if counter % 100000 == 0:
+                    print("  processing line %d" % counter)
+
+                tokens = tokenizer(line) #if tokenizer else basic_tokenizer(line)
+
+                for word in tokens:
+                    if word in vocab:
+                        vocab[word] += 1
+                    else:
+                        vocab[word] = 1
+            vocab_list = sorted(vocab, key=vocab.get, reverse=True)
+            if len(vocab_list) > max_vocabulary_size:
+                vocab_list = vocab_list[:max_vocabulary_size]
+            with gfile.GFile(vocabulary_path, mode="wb") as vocab_file:
+                for w in vocab_list:
+                    w = tf.compat.as_bytes(w)
+                    vocab_file.write(w + b"\n")
+
+def initialize_vocabulary(vocabulary_path):
+
+      if gfile.Exists(vocabulary_path):
+        rev_vocab = []
+        with gfile.GFile(vocabulary_path, mode="rb") as f:
+            rev_vocab.extend(f.readlines())
+        rev_vocab = [(line.strip()) for line in rev_vocab]
+        vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
+        return vocab, rev_vocab
+      else:
+        raise ValueError("Vocabulary file %s not found.", vocabulary_path)
+
+
+def sentence_to_token_ids(sentence, vocabulary,
+                          tokenizer=None, normalize_digits=True):
+
+    if tokenizer:
+        words = tokenizer(sentence)
+
+    return [vocabulary.get(w) for w in words]
+
+
+def data_to_token_ids(data_path, target_path, vocabulary_path,tokenizer=None, normalize_digits=True):
+
+
+    if not gfile.Exists(target_path):
+        print("Tokenizing data in %s" % data_path)
+        vocab, _ = initialize_vocabulary(vocabulary_path)
+        with gfile.GFile(data_path, mode="rb") as data_file:
+            with gfile.GFile(target_path, mode="w") as tokens_file:
+                counter = 0
+                for line in data_file:
+                    counter += 1
+                    if counter % 100000 == 0:
+                        print("  tokenizing line %d" % counter)
+                    token_ids = sentence_to_token_ids((line), vocab,
+                                            tokenizer, normalize_digits)
+                    final = '{}\n'.format(token_ids)
+                    tokens_file.write(final)
+
+def new_data_to_token_ids(sentence, vocabulary_path,tokenizer=None,normalize_digits=True):
+    vocab, _ = initialize_vocabulary(vocabulary_path)
+    token_ids = sentence_to_token_ids((sentence), vocab,
+                                            tokenizer, normalize_digits)
+
+    return token_ids
+
