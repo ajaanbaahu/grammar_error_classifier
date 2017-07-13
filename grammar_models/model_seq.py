@@ -11,8 +11,6 @@ import pickle
 import pandas as pd
 from sklearn.utils import shuffle
 import optparse
-#df_file = '/home/paperspace/workspace/grammar_classification_data/full_df.pkl'
-
 
 
 top_words = 300000
@@ -39,8 +37,6 @@ def read_data(source_file, train_samples, test_sample,max_review_length):
 
 
 
-
-
 def simple_LSTM(embedding_vector_length,max_review_length,num_hidden_units):
 	model = Sequential()
 	model.add(Embedding(top_words, embedding_vector_length, input_length=max_review_length))
@@ -59,7 +55,7 @@ def LSTM_dropput(embedding_vector_length,max_review_length,num_hidden_units):
 	model.add(Dense(1, activation='sigmoid'))
 	#model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 	print('Type : LSTM_Dropout')
-	print(model.summary())
+	#print(model.summary())
 	return model
 
 
@@ -73,20 +69,3 @@ def prediction_LSTM(embedding_vector_length,max_review_length,num_hidden_units):
 	print(model.summary())
 	return model
 
-
-#model = simple_LSTM()
-#model = LSTM_dropput()
-
-#
-# model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=5, batch_size=1024)
-#
-# scores = model.evaluate(X_test, y_test, verbose=0)
-# print("Accuracy: %.2f%%" % (scores[1]*100))
-#
-# # serialize model to JSON
-# model_json = model.to_json()
-# with open("model.json", "w") as json_file:
-#     json_file.write(model_json)
-# # serialize weights to HDF5
-# model.save_weights("model.h5")
-# print("Saved model to disk")

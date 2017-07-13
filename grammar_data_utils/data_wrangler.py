@@ -1,72 +1,15 @@
 import numpy
 from keras.preprocessing.text import text_to_word_sequence
+from keras.preprocessing import sequence
 from nltk import FreqDist
 import numpy as np
 import pandas as pd
 import pickle
 from tensorflow.python.platform import gfile
 import tensorflow as tf
-
+import ast
 
 import codecs
-
-
-def tokenize_sequence(sent_seq):
-    return [text_to_word_sequence(sents.replace('\u2028',' ')) for sents in sent_seq.split('\n')]
-
-def process_input(file, vocab_size):
-    f = codecs.open(file, encoding='utf-8')
-
-
-    raw_data = f.read()
-    print(len(raw_data))
-    tokenised = [text_to_word_sequence(sents.replace('\u2028',' ')) for sents in raw_data.split('\n')]
-    try:
-        dist = FreqDist(np.hstack(tokenised))
-        vocab = dist.most_common(vocab_size -1)
-
-    except BaseException as e:
-        print(e)
-    return tokenised, vocab
-
-def convert_to_ids(word_sequence, vocab):
-
-    print("this is stage 2", len(word_sequence))
-    ix_to_word = [word[0] for word in vocab]
-    word_to_ix = {word:ix for ix, word in enumerate(ix_to_word)}
-    print(len(word_to_ix))
-
-    return ix_to_word,word_to_ix
-
-def convert_seq2ids(word_seq, ix_to_w, w_to_ix):
-
-
-    for i, sentence in enumerate(word_seq):
-
-        for j, word in enumerate(sentence):
-            if word in w_to_ix:
-                
-                word_seq[i][j] = w_to_ix[word]
-
-    return word_seq
-
-
-def convert_to_df(sent_ids, sent_label,n):
-    temp = pd.DataFrame(list(zip(sent_ids,sent_label))[:n],columns=['sent_ids','label'])
-    return temp
-
-def dump_to_pickle(file_path,data):
-
-    with open(file_path,'wb') as fh:
-        pickle.dump(data,fh)
-    print("done writing files")
-
-def read_from_pickle(file_path):
-    with open(file_path,'rb') as fh:
-        data = pickle.load(fh)
-        return data
-
-
 
 def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
                       tokenizer=None, normalize_digits=True):
@@ -142,3 +85,33 @@ def new_data_to_token_ids(sentence, vocabulary_path,tokenizer=None,normalize_dig
 
     return token_ids
 
+
+
+    '''for very large files'''
+
+def generate_arrays_from_file(correct_grammar_file, incorrect_grammar_file , max_lines, max_pad_length):
+    counter = 0
+    print(correct_grammar_file,incorrect_grammar_file,max_lines,max_pad_length)
+
+    with open(correct_grammar_file,'r') as fh1, open(incorrect_grammar_file,'r') as fh2:
+        while 1:
+            for x,y in zip(fh1, fh2):
+
+                if 'None' in x:
+                    continue
+                if 'None' in y:
+                    continue
+                counter +=1
+
+                # if  counter == max_lines:
+                #     break
+                try:
+
+                    x = sequence.pad_sequences([ast.literal_eval(x)],max_pad_length),np.array([[1]])
+                    y = sequence.pad_sequences([ast.literal_eval(y)],max_pad_length),np.array([[0]])
+
+
+                    yield x
+
+                except TypeError as e:
+                    print(e)
