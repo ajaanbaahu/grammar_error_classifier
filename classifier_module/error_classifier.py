@@ -21,13 +21,13 @@ from grammar_data_utils.convert2ids import newSeq2id
 embedding_vec_len = 128
 max_review_length = 200
 
-model = prediction_LSTM(embedding_vec_len,max_review_length)
+classification_model = prediction_LSTM(embedding_vec_len,max_review_length)
 
-model.load_weights('/Users/rmohan/sequenceModels/error-detection/model.h5')
+model.load_weights('model.h5')
 
-print("Loaded model from disk")
+print("Loading model from disk")
 
-# evaluate loaded model on test data
+'''evaluate trained model on test data '''
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 data = newSeq2id("Students and teachers are taking the date lightly.")
