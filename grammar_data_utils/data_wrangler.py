@@ -8,6 +8,7 @@ import pickle
 from tensorflow.python.platform import gfile
 import tensorflow as tf
 import ast
+from itertools import chain, islice
 
 import codecs
 
@@ -89,29 +90,51 @@ def new_data_to_token_ids(sentence, vocabulary_path,tokenizer=None,normalize_dig
 
     '''for very large files'''
 
-def generate_arrays_from_file(correct_grammar_file, incorrect_grammar_file , max_lines, max_pad_length):
+def generate_arrays_from_file(correct_grammar_file, incorrect_grammar_file ,max_pad_length,yield_size):
     counter = 0
-    print(correct_grammar_file,incorrect_grammar_file,max_lines,max_pad_length)
-
+    print(correct_grammar_file,incorrect_grammar_file,max_pad_length)
     with open(correct_grammar_file,'r') as fh1, open(incorrect_grammar_file,'r') as fh2:
-        while 1:
-            for x,y in zip(fh1, fh2):
-
-                if 'None' in x:
-                    continue
-                if 'None' in y:
-                    continue
-                counter +=1
-
-                # if  counter == max_lines:
-                #     break
-                try:
-
-                    x = sequence.pad_sequences([ast.literal_eval(x)],max_pad_length),np.array([[1]])
-                    y = sequence.pad_sequences([ast.literal_eval(y)],max_pad_length),np.array([[0]])
+        
+        while True:
+            next_X1_lines = list(islice(fh1,yield_size))
+            x1_batch = [ast.literal_eval(x.strip()) for x in next_X1_lines if 'None' not in x]
+            x1_batch = sequence.pad_sequences(x1_batch,max_pad_length)
 
 
-                    yield x
+            if x1_batch != [] and len(x1_batch) > 2:
+                x1 = (x1_batch,np.ones(len(x1_batch)))
+                yield (x1)
 
-                except TypeError as e:
-                    print(e)
+
+            next_X2_lines = list(islice(fh2,yield_size))
+
+            x2_batch = [ast.literal_eval(x.strip()) for x in next_X2_lines if 'None' not in x]
+            x2_batch = sequence.pad_sequences(x2_batch,max_pad_length)
+
+
+            if x2_batch != [] and len(x2_batch) > 2:
+                x2 = (x2_batch,np.zeros(len(x2_batch)))
+                yield (x2)
+
+            if x1 or x2 is None:
+                continue
+
+            if not next_X1_lines :
+                break
+
+
+
+def convert_to_df(sent_ids, sent_label,n):
+    temp = pd.DataFrame(list(zip(sent_ids,sent_label))[:n],columns=['sent_ids','label'])
+    return temp
+
+def dump_to_pickle(file_path,data):
+
+    with open(file_path,'wb') as fh:
+        pickle.dump(data,fh)
+    print("done writing files")
+
+def read_from_pickle(file_path):
+    with open(file_path,'rb') as fh:
+        data = pickle.load(fh)
+        return data
